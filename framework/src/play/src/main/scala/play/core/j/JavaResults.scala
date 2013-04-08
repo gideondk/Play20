@@ -17,7 +17,7 @@ object JavaResults extends Results with DefaultWriteables with DefaultContentTyp
   def writeContent(mimeType: String)(implicit codec: Codec): Writeable[Content] = Writeable(content => codec.encode(content.body), Some(ContentTypes.withCharset(mimeType)))
   def writeString(mimeType: String)(implicit codec: Codec): Writeable[String] = Writeable(s => codec.encode(s), Some(ContentTypes.withCharset(mimeType)))
   def writeString(implicit codec: Codec): Writeable[String] = writeString(MimeTypes.TEXT)
-  def writeJson(implicit codec: Codec): Writeable[org.codehaus.jackson.JsonNode] = Writeable(json => codec.encode(json.toString), Some(ContentTypes.JSON))
+  def writeJson(implicit codec: Codec): Writeable[com.fasterxml.jackson.databind.JsonNode] = Writeable(json => codec.encode(json.toString), Some(ContentTypes.JSON))
   def writeBytes: Writeable[Array[Byte]] = Writeable.wBytes
   def writeBytes(contentType: String): Writeable[Array[Byte]] = Writeable((bs: Array[Byte]) => bs)(contentTypeOfBytes(contentType))
   def writeEmptyContent: Writeable[Results.EmptyContent] = writeableOf_EmptyContent
@@ -27,7 +27,7 @@ object JavaResults extends Results with DefaultWriteables with DefaultContentTyp
   def async(p: scala.concurrent.Future[Result]) = AsyncResult(p)
   def chunked[A](onDisconnected: () => Unit): play.libs.F.Tuple[Enumerator[A], Channel[A]] = {
     val (enumerator, channel) = Concurrent.broadcast[A]
-    play.libs.F.Tuple(enumerator.onDoneEnumerating(onDisconnected), channel)
+    play.libs.F.Tuple(enumerator.onDoneEnumerating(onDisconnected()), channel)
   }
   //play.api.libs.iteratee.Enumerator.imperative[A](onComplete = onDisconnected)
   def chunked(stream: java.io.InputStream, chunkSize: Int): Enumerator[Array[Byte]] = Enumerator.fromStream(stream, chunkSize)

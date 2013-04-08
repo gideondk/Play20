@@ -110,8 +110,8 @@ Here we define a complete project split in two main parts: the website and the a
 If you would like the dependent projects to be recompiled and tested when you recompile and test the main project then you will need to add an "aggregate" clause.
 
 ```
-val main = PlayProject(
-  appName, appVersion
+val main = play.Project(
+  appName, appVersion, appDependencies
 ).dependsOn(
   website, adminArea
 ).aggregate(
@@ -148,10 +148,10 @@ object ApplicationBuild extends Build {
 
     val mainDeps = Seq()
   
-   lazy val admin = play.Project(appName + "-admin", appVersion, adminDeps, path = file("modules/admin"))
+    lazy val admin = play.Project(appName + "-admin", appVersion, adminDeps, path = file("modules/admin"))
 
 
-  lazy  val main = play.Project(appName, appVersion, mainDeps).settings(
+    lazy  val main = play.Project(appName, appVersion, mainDeps).settings(
       // Add your own project settings here      
     ).dependsOn(admin).aggregate(admin)
 

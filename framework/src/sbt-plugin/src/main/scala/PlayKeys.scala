@@ -50,7 +50,7 @@ trait PlayKeys {
 
   val ebeanEnabled = SettingKey[Boolean]("play-ebean-enabled")
 
-  val templatesTypes = SettingKey[PartialFunction[String, (String, String)]]("play-templates-formats")
+  val templatesTypes = SettingKey[Map[String, String]]("play-templates-formats")
 
   val closureCompilerOptions = SettingKey[Seq[String]]("play-closure-compiler-options")
 
@@ -68,5 +68,14 @@ trait PlayKeys {
 
   val devSettings = SettingKey[Seq[(String,String)]]("play-dev-settings")
 
+  val scalaIdePlay2Prefs = TaskKey[Unit]("scala-ide-play2-prefs")
 }
 object PlayKeys extends PlayKeys
+
+trait PlayInternalKeys {
+  val playCommonClassloader = TaskKey[ClassLoader]("play-common-classloader")
+  val playReload = TaskKey[sbt.inc.Analysis]("play-reload")
+  val buildRequire = TaskKey[Seq[(File, File)]]("play-build-require-assets")
+  val playCompileEverything = TaskKey[Seq[sbt.inc.Analysis]]("play-compile-everything")
+  val playPackageEverything = TaskKey[Seq[File]]("play-package-everything")
+}

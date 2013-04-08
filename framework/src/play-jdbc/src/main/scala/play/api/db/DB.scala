@@ -12,7 +12,7 @@ import javax.sql._
 
 import com.jolbox.bonecp._
 import com.jolbox.bonecp.hooks._
-import scala.util.control.NonFatal
+import scala.util.control.{NonFatal, ControlThrowable}
 
 /**
  * The Play Database API manages several connection pools.
@@ -31,7 +31,7 @@ trait DBApi {
   /**
    * Retrieves a JDBC connection, with auto-commit set to `true`.
    *
-   * Don’t forget to release the connection at some point by calling close().
+   * Don't forget to release the connection at some point by calling close().
    *
    * @param name the data source name
    * @return a JDBC connection
@@ -43,7 +43,7 @@ trait DBApi {
    * Retrieves the JDBC connection URL for a particular data source.
    *
    * @param name the data source name
-   * @return The JDBC URL connection string, i.e. `jdbc:…`
+   * @return The JDBC URL connection string, i.e. `jdbc:...`
    * @throws an error if the required data source is not registered
    */
   def getDataSourceURL(name: String): String = {
@@ -56,7 +56,7 @@ trait DBApi {
   /**
    * Retrieves a JDBC connection.
    *
-   * Don’t forget to release the connection at some point by calling close().
+   * Don't forget to release the connection at some point by calling close().
    *
    * @param name the data source name
    * @param autocommit when `true`, sets this connection to auto-commit
@@ -101,6 +101,7 @@ trait DBApi {
         connection.commit()
         r
       } catch {
+        case e: ControlThrowable => connection.commit(); throw e
         case NonFatal(e) => connection.rollback(); throw e
       }
     }
@@ -353,11 +354,11 @@ private[db] class BoneCPApi(configuration: Configuration, classloader: ClassLoad
         datasource.setUsername(username)
         datasource.setPassword(password)
       case Some(url @ H2DefaultUrl()) if !url.contains("DB_CLOSE_DELAY") =>
-        if (Play.maybeApplication.exists(_.mode == Mode.Dev)) {      
-          Logger("play").warn("datasource [" + url + "] is an in-memory H2 DB, but does not have DB_CLOSE_DELAY=-1 set. " +
-            "This means H2 will lose all DB content if all DB connections are closed, so evolutions and the h2-browser might not work correctly.")
+        if (Play.maybeApplication.exists(_.mode == Mode.Dev)) {
+          datasource.setJdbcUrl(url + ";DB_CLOSE_DELAY=-1")
+        } else {
+          datasource.setJdbcUrl(url)
         }
-        datasource.setJdbcUrl(url)
       case Some(s: String) =>
         datasource.setJdbcUrl(s)
       case _ =>
@@ -379,6 +380,7 @@ private[db] class BoneCPApi(configuration: Configuration, classloader: ClassLoad
     datasource.setIdleMaxAge(conf.getMilliseconds("idleMaxAge").getOrElse(1000 * 60 * 10), java.util.concurrent.TimeUnit.MILLISECONDS)
     datasource.setMaxConnectionAge(conf.getMilliseconds("maxConnectionAge").getOrElse(1000 * 60 * 60), java.util.concurrent.TimeUnit.MILLISECONDS)
     datasource.setDisableJMX(conf.getBoolean("disableJMX").getOrElse(true))
+    datasource.setStatisticsEnabled(conf.getBoolean("statisticsEnabled").getOrElse(false))
     datasource.setIdleConnectionTestPeriod(conf.getMilliseconds("idleConnectionTestPeriod").getOrElse(1000 * 60), java.util.concurrent.TimeUnit.MILLISECONDS)
     // Release helper threads has caused users issues, and the feature has been removed altogether from BoneCP 0.8.0
     // (which is yet to be released) because it offered no real performance advantage.  Once we upgrade to BoneCP 0.8.x,
@@ -417,7 +419,7 @@ private[db] class BoneCPApi(configuration: Configuration, classloader: ClassLoad
   /**
    * Retrieves a JDBC connection, with auto-commit set to `true`.
    *
-   * Don’t forget to release the connection at some point by calling close().
+   * Don't forget to release the connection at some point by calling close().
    *
    * @param name the data source name
    * @return a JDBC connection

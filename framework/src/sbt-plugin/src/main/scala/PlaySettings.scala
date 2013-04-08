@@ -2,9 +2,10 @@ package sbt
 
 import Keys._
 import PlayKeys._
+import PlayEclipse._
 
 trait PlaySettings {
-  this: PlayCommands with PlayPositionMapper =>
+  this: PlayCommands with PlayPositionMapper with PlayRun =>
   
   protected def whichLang(name: String): Seq[Setting[_]] = {
     if (name == JAVA) {
@@ -131,7 +132,9 @@ trait PlaySettings {
     // Adds app directory's source files to continuous hot reloading
     watchSources <++= baseDirectory map { path => ((path / "app") ** "*" --- (path / "app/assets") ** "*").get },
 
-    commands ++= Seq(shCommand, playCommand, playRunCommand, playStartCommand, h2Command, classpathCommand, licenseCommand, computeDependenciesCommand),
+    commands ++= Seq(shCommand, playCommand, playStartCommand, h2Command, classpathCommand, licenseCommand, computeDependenciesCommand),
+
+    run <<= playRunSetting,
 
     shellPrompt := playPrompt,
 
@@ -215,10 +218,16 @@ trait PlaySettings {
 
     templatesImport := Seq("play.api.templates._", "play.api.templates.PlayMagic._"),
 
-    templatesTypes := {
-      case "html" => ("play.api.templates.Html", "play.api.templates.HtmlFormat")
-      case "txt" => ("play.api.templates.Txt", "play.api.templates.TxtFormat")
-      case "xml" => ("play.api.templates.Xml", "play.api.templates.XmlFormat")
-    })
+
+    scalaIdePlay2Prefs <<= (state, thisProjectRef, baseDirectory) map { (s, r, baseDir) => saveScalaIdePlay2Prefs(r, Project structure s, baseDir) },
+
+    templatesTypes := Map(
+      "html" -> "play.api.templates.HtmlFormat",
+      "txt" -> "play.api.templates.TxtFormat",
+      "xml" -> "play.api.templates.XmlFormat",
+      "js" -> "play.api.templates.JavaScriptFormat"
+    )
+
+  )
 
 }
