@@ -39,7 +39,7 @@ object BuildSettings {
     publishTo := Some(playRepository),
     javacOptions ++= Seq("-source", "1.6", "-target", "1.6", "-encoding", "UTF-8"),
     javacOptions in doc := Seq("-source", "1.6"),
-    resolvers += typesafe)
+    resolvers ++= Seq(typesafe, typesafeSnaps))
 
   def PlaySharedJavaProject(name: String, dir: String, testBinaryCompatibility: Boolean = false): Project = {
     val bcSettings: Seq[Setting[_]] = if (testBinaryCompatibility) {
@@ -91,6 +91,7 @@ object Resolvers {
 
   val playLocalRepository = Resolver.file("Play Local Repository", file("../repository/local"))(Resolver.ivyStylePatterns)
   val typesafe = "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+  val typesafeSnaps = "Typesafe Repository" at "http://repo.typesafe.com/typesafe/snapshots/"
   val typesafeReleases = "Typesafe Releases Repository" at "https://typesafe.artifactoryonline.com/typesafe/maven-releases/"
   val typesafeSnapshot = "Typesafe Snapshots Repository" at "https://typesafe.artifactoryonline.com/typesafe/maven-snapshots/"
   val playRepository = if (buildVersion.endsWith("SNAPSHOT")) typesafeSnapshot else typesafeReleases
