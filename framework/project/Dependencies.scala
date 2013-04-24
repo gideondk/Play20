@@ -64,6 +64,8 @@ object Dependencies {
   val runtime = Seq(
     "io.netty" % "netty" % "3.6.3.Final",
 
+    "com.typesafe.netty" % "netty-http-pipelining" % "1.0.0",
+
     "org.slf4j" % "slf4j-api" % "1.6.6",
     "org.slf4j" % "jul-to-slf4j" % "1.6.6",
     "org.slf4j" % "jcl-over-slf4j" % "1.6.6",
@@ -140,7 +142,7 @@ object Dependencies {
 
     "com.h2database" % "h2" % "1.3.168",
     "org.javassist" % "javassist" % "3.16.1-GA",
-    "org.pegdown" % "pegdown" % "1.1.0",
+    "org.pegdown" % "pegdown" % "1.2.1-withplugins-1",
 
     "net.contentobjects.jnotify" % "jnotify" % "0.94")
 

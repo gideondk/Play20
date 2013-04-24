@@ -9,13 +9,7 @@ export SCRIPT=`dirname $0`
 cd $SCRIPT
 export PLAY=`pwd`/../play
 
-./build "$@" publish-local
-
-echo "[info]"
-echo "[info] ---- RUNNING FRAMEWORK SPECS"
-echo "[info]"
-
-./build "$@" test
+./build "$@" publish-local test
 
 rm -rf ./logs
 
@@ -63,6 +57,14 @@ echo "[info] ---- RUNNING CSRF TEST"
 echo "[info]"
 
 $PLAY "$@" clean-all test
+cd $CURRENT
+
+echo "[info]"
+echo "[info] ---- RUNNING DOCUMENTATION TESTS"
+echo "[info]"
+
+cd ../documentation
+$PLAY "$@" clean-all test validate-docs
 cd $CURRENT
 
 echo "[info]"

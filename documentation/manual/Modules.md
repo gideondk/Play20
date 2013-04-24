@@ -140,6 +140,11 @@
 * **Documentation:** <https://github.com/joscha/play-jsonminify/blob/master/README.md>
 * **Short description:** Allows JSON asset pretty-printing and minification
 
+## JSONP filter
+
+* **Website:** <https://github.com/julienrf/play-jsonp-filter>
+* **Short description:** Enables JSONP on your existing HTTP API.
+
 ## Manual Dependency Injection Plugin (Java and Scala)
 * **Website (docs, sample):** <https://github.com/typesafehub/play-plugins>
 * **Short description:** provides DI via manual injection
@@ -269,6 +274,12 @@ your Play 2 application.
 * **Website:** <https://github.com/Rhinofly/play-libraries/tree/master/session-cache>
 * **Documentation:** <https://github.com/Rhinofly/play-libraries/tree/master/session-cache/README.md>
 * **Short description:** Session cache for Play 2.0 
+
+## Sitemap Generator (Java)
+
+* **Website:** <https://github.com/blabluble/play-sitemap-module>
+* **Documentation:** <https://github.com/blabluble/play-sitemap-module/blob/master/README.md>
+* **Short description:** Automatic [sitemaps](http://www.sitemaps.org/) generator for Play 2.1
 
 ## Snapshot Plugin (Java and Scala)
 * **Website (docs, sample):** <https://github.com/vznet/play-snapshot>

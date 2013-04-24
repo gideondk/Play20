@@ -27,7 +27,7 @@ object Configuration {
    * loads `Configuration` from 'conf/application.conf' in Dev mode
    * @return  configuration to be used
    */
-  private[play] def loadDev(appPath: File, devSettings: Map[String,String]): Config = {
+  private[play] def loadDev(appPath: File, devSettings: Map[String, String]): Config = {
     try {
       val file = {
         devSettings.get("config.file").orElse(Option(System.getProperty("config.file")))
@@ -53,13 +53,13 @@ object Configuration {
    * @param mode Application mode.
    * @return a `Configuration` instance
    */
-  def load(appPath: File, mode: Mode.Mode = Mode.Dev, devSettings: Map[String,String] = Map.empty) = {
+  def load(appPath: File, mode: Mode.Mode = Mode.Dev, devSettings: Map[String, String] = Map.empty) = {
     try {
       val currentMode = Play.maybeApplication.map(_.mode).getOrElse(mode)
       if (currentMode == Mode.Prod) Configuration(dontAllowMissingConfig) else Configuration(loadDev(appPath, devSettings))
     } catch {
       case e: ConfigException => throw configError(e.origin, e.getMessage, Some(e))
-      case e : Throwable => throw e
+      case e: Throwable => throw e
     }
   }
 
@@ -89,7 +89,7 @@ object Configuration {
   private def configError(origin: ConfigOrigin, message: String, e: Option[Throwable] = None): PlayException = {
     import scalax.io.JavaConverters._
     new PlayException.ExceptionSource("Configuration error", message, e.orNull) {
-      def line = Option(origin.lineNumber:java.lang.Integer).orNull
+      def line = Option(origin.lineNumber: java.lang.Integer).orNull
       def position = null
       def input = Option(origin.url).map(_.asInput.string).orNull
       def sourceName = Option(origin.filename).orNull
@@ -139,7 +139,7 @@ case class Configuration(underlying: Config) {
    *
    * A configuration error will be thrown if the configuration value does not match any of the required values.
    *
-   * @param key the configuration key, relative to configuration root key
+   * @param path the configuration key, relative to configuration root key
    * @param validValues valid values for this configuration
    * @return a configuration value
    */
@@ -163,7 +163,7 @@ case class Configuration(underlying: Config) {
    *
    * A configuration error will be thrown if the configuration value is not a valid `Int`.
    *
-   * @param key the configuration key, relative to the configuration root key
+   * @param path the configuration key, relative to the configuration root key
    * @return a configuration value
    */
   def getInt(path: String): Option[Int] = readValue(path, underlying.getInt(path))
@@ -180,7 +180,7 @@ case class Configuration(underlying: Config) {
    * A configuration error will be thrown if the configuration value is not a valid `Boolean`.
    * Authorized vales are `yes/no or true/false.
    *
-   * @param key the configuration key, relative to the configuration root key
+   * @param path the configuration key, relative to the configuration root key
    * @return a configuration value
    */
   def getBoolean(path: String): Option[Boolean] = readValue(path, underlying.getBoolean(path))
@@ -247,7 +247,7 @@ case class Configuration(underlying: Config) {
    *
    * The root key of this new configuration will be ‘engine’, and you can access any sub-keys relatively.
    *
-   * @param key the root prefix for this sub-configuration
+   * @param path the root prefix for this sub-configuration
    * @return a new configuration
    */
   def getConfig(path: String): Option[Configuration] = readValue(path, underlying.getConfig(path)).map(Configuration(_))
@@ -263,7 +263,7 @@ case class Configuration(underlying: Config) {
    *
    * A configuration error will be thrown if the configuration value is not a valid `Double`.
    *
-   * @param key the configuration key, relative to the configuration root key
+   * @param path the configuration key, relative to the configuration root key
    * @return a configuration value
    */
   def getDouble(path: String): Option[Double] = readValue(path, underlying.getDouble(path))
@@ -279,7 +279,7 @@ case class Configuration(underlying: Config) {
    *
    * A configuration error will be thrown if the configuration value is not a valid `Long`.
    *
-   * @param key the configuration key, relative to the configuration root key
+   * @param path the configuration key, relative to the configuration root key
    * @return a configuration value
    */
   def getLong(path: String): Option[Long] = readValue(path, underlying.getLong(path))
@@ -295,7 +295,7 @@ case class Configuration(underlying: Config) {
    *
    * A configuration error will be thrown if the configuration value is not a valid `Number`.
    *
-   * @param key the configuration key, relative to the configuration root key
+   * @param path the configuration key, relative to the configuration root key
    * @return a configuration value
    */
   def getNumber(path: String): Option[Number] = readValue(path, underlying.getNumber(path))
@@ -560,7 +560,7 @@ case class Configuration(underlying: Config) {
    * throw configuration.reportError("engine.connectionUrl", "Cannot connect!")
    * }}}
    *
-   * @param key the configuration key, related to this error
+   * @param path the configuration key, related to this error
    * @param message the error message
    * @param e the related exception
    * @return a configuration exception

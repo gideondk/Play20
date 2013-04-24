@@ -1,17 +1,19 @@
 package play.api.libs.iteratee
 
+import scala.concurrent.ExecutionContext
+
 object Traversable {
 
   @scala.deprecated("use Enumeratee.passAlong instead", "2.1.x")
   def passAlong[M] = Enumeratee.passAlong[M]
 
-  def head[E] = new { 
-    def apply[A](implicit p: E => scala.collection.TraversableLike[A, E]):Iteratee[E,Option[A]] = {
+  def head[E] = new {
+    def apply[A](implicit p: E => scala.collection.TraversableLike[A, E]): Iteratee[E, Option[A]] = {
 
-      def step:K[E,Option[A]] = {
+      def step: K[E, Option[A]] = {
         case Input.Empty => Cont(step)
-        case Input.EOF => Done(None,Input.EOF)
-        case Input.El(xs) if ! xs.isEmpty => Done(Some(xs.head), Input.El(xs.tail))
+        case Input.EOF => Done(None, Input.EOF)
+        case Input.El(xs) if !xs.isEmpty => Done(Some(xs.head), Input.El(xs.tail))
         case Input.El(empty) => Cont(step)
       }
       Cont(step)
@@ -32,7 +34,7 @@ object Traversable {
                 case (toPush, left) => Done(k(Input.El(toPush)), Input.El(left))
               }
               case _ => Done(inner, in)
-            }
+            }(ExecutionContext.global)
 
           case Input.EOF => Done(inner, Input.EOF)
 
@@ -56,9 +58,9 @@ object Traversable {
                 case Step.Done(_, _) => Cont(step(inner, (leftToTake - all.size)))
                 case Step.Cont(k) => Cont(step(k(Input.El(all)), (leftToTake - all.size)))
                 case Step.Error(_, _) => Cont(step(inner, (leftToTake - all.size)))
-              }
+              }(ExecutionContext.global)
               case (x, left) if x.isEmpty => Done(inner, Input.El(left))
-              case (toPush, left) => Done(inner.pureFlatFold{ case Step.Cont(k) => k(Input.El(toPush)); case _ => inner }, Input.El(left))
+              case (toPush, left) => Done(inner.pureFlatFold { case Step.Cont(k) => k(Input.El(toPush)); case _ => inner }(ExecutionContext.global), Input.El(left))
             }
 
           case Input.EOF => Done(inner, Input.EOF)
@@ -74,24 +76,24 @@ object Traversable {
 
   import Enumeratee.CheckDone
 
-  def splitOnceAt[M,E](p: E => Boolean)(implicit traversableLike: M => scala.collection.TraversableLike[E, M]):Enumeratee[M,M] =  new CheckDone[M, M] {
+  def splitOnceAt[M, E](p: E => Boolean)(implicit traversableLike: M => scala.collection.TraversableLike[E, M]): Enumeratee[M, M] = new CheckDone[M, M] {
 
-      def step[A](k: K[M, A]): K[M, Iteratee[M, A]] = {
+    def step[A](k: K[M, A]): K[M, Iteratee[M, A]] = {
 
-        case in @ Input.El(e) =>
-          e.span(p) match {
-            case (prefix,suffix) if suffix.isEmpty => new CheckDone[M, M] { def continue[A](k: K[M, A]) = Cont(step(k)) } &> k(Input.El(prefix))
-            case (prefix,suffix) => Done(if(prefix.isEmpty) Cont(k) else  k(Input.El(prefix)), Input.El(suffix.drop(1)))
-          }
+      case in @ Input.El(e) =>
+        e.span(p) match {
+          case (prefix, suffix) if suffix.isEmpty => new CheckDone[M, M] { def continue[A](k: K[M, A]) = Cont(step(k)) } &> k(Input.El(prefix))
+          case (prefix, suffix) => Done(if (prefix.isEmpty) Cont(k) else k(Input.El(prefix)), Input.El(suffix.drop(1)))
+        }
 
-        case in @ Input.Empty =>
-          new CheckDone[M, M] { def continue[A](k: K[M, A]) = Cont(step(k)) } &> k(in)
+      case in @ Input.Empty =>
+        new CheckDone[M, M] { def continue[A](k: K[M, A]) = Cont(step(k)) } &> k(in)
 
-        case Input.EOF => Done(Cont(k), Input.EOF)
+      case Input.EOF => Done(Cont(k), Input.EOF)
 
-      }
+    }
 
-      def continue[A](k: K[M, A]) = Cont(step(k))
+    def continue[A](k: K[M, A]) = Cont(step(k))
 
   }
 
@@ -110,7 +112,7 @@ object Traversable {
                 it.pureFlatFold {
                   case Step.Cont(k) => Enumeratee.passAlong.applyOn(k(toPass))
                   case _ => Done(it, toPass)
-                }
+                }(ExecutionContext.global)
             }
           case Input.Empty => Cont(step(it, leftToDrop))
 

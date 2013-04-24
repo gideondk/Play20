@@ -7,7 +7,7 @@ import play.api.http._
 import play.api.libs.json._
 import play.api.http.Status._
 import play.api.http.HeaderNames._
-import play.api.{Application, Play}
+import play.api.{ Application, Play }
 import play.api.i18n.Lang
 
 import scala.concurrent.{ Future, ExecutionContext }
@@ -60,7 +60,6 @@ sealed trait WithHeaders[+A <: Result] {
    */
   def withCookies(cookies: Cookie*): A
 
-
   /**
    * Discards cookies along this result.
    *
@@ -73,7 +72,7 @@ sealed trait WithHeaders[+A <: Result] {
    * @return the new result
    */
   @deprecated("This method can only discard cookies on the / path with no domain and without secure set.  Use discardingCookies(DiscardingCookie*) instead.", "2.1")
-  def discardingCookies(name: String, names: String*): A = discardingCookies((name :: names.toList).map(n => DiscardingCookie(n)):_*)
+  def discardingCookies(name: String, names: String*): A = discardingCookies((name :: names.toList).map(n => DiscardingCookie(n)): _*)
 
   /**
    * Discards cookies along this result.
@@ -396,16 +395,17 @@ case class AsyncResult(result: Future[Result]) extends Result with WithHeaders[A
    * @param f The transformation function
    * @return The transformed `AsyncResult`
    */
-  def transform(f: PlainResult => Result)(implicit ec: ExecutionContext): AsyncResult = AsyncResult (result.map {
-      case AsyncResult(r) => AsyncResult(r.map{
-        case r:PlainResult => f(r)
-        case r:AsyncResult => r.transform(f)})
-      case r:PlainResult => f(r)
+  def transform(f: PlainResult => Result)(implicit ec: ExecutionContext): AsyncResult = AsyncResult(result.map {
+    case AsyncResult(r) => AsyncResult(r.map {
+      case r: PlainResult => f(r)
+      case r: AsyncResult => r.transform(f)
+    })
+    case r: PlainResult => f(r)
   })
 
-  def unflatten:Future[PlainResult] = result.flatMap {
-      case r:PlainResult => Promise.pure(r)
-      case r@AsyncResult(_) => r.unflatten
+  def unflatten: Future[PlainResult] = result.flatMap {
+    case r: PlainResult => Promise.pure(r)
+    case r @ AsyncResult(_) => r.unflatten
   }(internalContext)
 
   def map(f: Result => Result)(implicit ec: ExecutionContext): AsyncResult = AsyncResult(result.map(f))
@@ -546,7 +546,6 @@ case class AsyncResult(result: Future[Result]) extends Result with WithHeaders[A
 
 }
 
-
 /**
  * A Codec handle the conversion of String to Byte arrays.
  *
@@ -607,7 +606,7 @@ trait Results {
      *
      * @tparam C the content type
      * @param content content to send
-     * @param a `SimpleResult`
+     * @return a `SimpleResult`
      */
     def apply[C](content: C)(implicit writeable: Writeable[C]): SimpleResult[C] = {
       SimpleResult(
@@ -622,13 +621,13 @@ trait Results {
      * @param inline Use Content-Disposition inline or attachment.
      * @param fileName function to retrieve the file name (only used for Content-Disposition attachment)
      */
-    def sendFile(content: java.io.File, inline: Boolean = false, fileName: java.io.File => String = _.getName, onClose: () => Unit = () => ()): SimpleResult[Array[Byte]] = {
+    def sendFile(content: java.io.File, inline: Boolean = false, fileName: java.io.File => String = _.getName, onClose: () => Unit = () => ())(ec: ExecutionContext): SimpleResult[Array[Byte]] = {
       SimpleResult(
         header = ResponseHeader(OK, Map(
           CONTENT_LENGTH -> content.length.toString,
           CONTENT_TYPE -> play.api.libs.MimeTypes.forFileName(content.getName).getOrElse(play.api.http.ContentTypes.BINARY)
         ) ++ (if (inline) Map.empty else Map(CONTENT_DISPOSITION -> ("""attachment; filename="%s"""".format(fileName(content)))))),
-        Enumerator.fromFile(content) &> Enumeratee.onIterateeDone(onClose)
+        Enumerator.fromFile(content) &> Enumeratee.onIterateeDone(onClose)(ec)
       )
     }
 
@@ -637,7 +636,7 @@ trait Results {
      *
      * @tparam C the chunk type
      * @param content Enumerator providing the chunked content.
-     * @param a `ChunkedResult`
+     * @return a `ChunkedResult`
      */
     def stream[C](content: Enumerator[C])(implicit writeable: Writeable[C]): ChunkedResult[C] = {
       ChunkedResult(
@@ -656,7 +655,7 @@ trait Results {
      *
      * @tparam C the chunk type
      * @param content A function that will give you the Iteratee to write in once ready.
-     * @param a `ChunkedResult`
+     * @return a `ChunkedResult`
      */
     def stream[C](content: Iteratee[C, Unit] => Unit)(implicit writeable: Writeable[C]): ChunkedResult[C] = {
       ChunkedResult(
@@ -779,7 +778,7 @@ trait Results {
 
   /** Generates a ‘500 INTERNAL_SERVER_ERROR’ result. */
   val InternalServerError = new Status(INTERNAL_SERVER_ERROR)
-  
+
   /** Generates a ‘501 NOT_IMPLEMENTED’ result. */
   val NotImplemented = new Status(NOT_IMPLEMENTED)
 

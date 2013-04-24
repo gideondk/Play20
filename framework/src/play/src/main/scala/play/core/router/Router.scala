@@ -26,12 +26,13 @@ case class PathPattern(parts: Seq[PathPart]) {
 
   private def decodeIfEncoded(decode: Boolean, groupCount: Int): Matcher => Either[Throwable, String] = matcher =>
     Exception.allCatch[String].either {
-      if(decode)
-         new URI(matcher.group(groupCount)).getPath
-      else
+      if (decode) {
+        val group = matcher.group(groupCount)
+        // If param is not correctly encoded, get path will return null, so we prepend a / to it
+        new URI("/" + group).getPath.drop(1)
+      } else
         matcher.group(groupCount)
     }
-
 
   lazy val (regex, groups) = {
     Some(parts.foldLeft("", Map.empty[String, Matcher => Either[Throwable, String]], 0) { (s, e) =>
@@ -47,7 +48,6 @@ case class PathPattern(parts: Seq[PathPart]) {
       case (r, g, _) => Pattern.compile("^" + r + "$") -> g
     }.get
   }
-
 
   def apply(path: String): Option[Map[String, Either[Throwable, String]]] = {
     val matcher = regex.matcher(path)
@@ -71,8 +71,8 @@ case class PathPattern(parts: Seq[PathPart]) {
  * provides Play's router implementation
  */
 object Router {
-  
-   object Route {
+
+  object Route {
 
     trait ParamsExtractor {
       def unapply(request: RequestHeader): Option[RouteParams]
