@@ -14,7 +14,8 @@ object ApplicationBuild extends Build {
     scalaVersion := PlayVersion.scalaVersion,
     libraryDependencies ++= Seq(
       component("play") % "test",
-      component("play-test") % "test"
+      component("play-test") % "test",
+      component("play-java") % "test"
     ),
 
     javaManualSourceDirectories <<= (baseDirectory)(base => (base / "manual" / "javaGuide" ** "code").get),
@@ -22,6 +23,15 @@ object ApplicationBuild extends Build {
 
     unmanagedSourceDirectories in Test <++= javaManualSourceDirectories,
     unmanagedSourceDirectories in Test <++= scalaManualSourceDirectories,
+
+    unmanagedResourceDirectories in Test <++= javaManualSourceDirectories,
+    unmanagedResourceDirectories in Test <++= scalaManualSourceDirectories,
+
+    parallelExecution in Test := false,
+
+    (compile in Test) <<= Enhancement.enhanceJavaClasses,
+
+    javacOptions ++= Seq("-g", "-Xlint:deprecation"),
 
     // Need to ensure that templates in the Java docs get Java imports, and in the Scala docs get Scala imports
     sourceGenerators in Test <+= (state, javaManualSourceDirectories, sourceManaged in Test, templatesTypes) map { (s, ds, g, t) =>

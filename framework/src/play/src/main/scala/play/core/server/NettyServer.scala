@@ -32,7 +32,9 @@ trait ServerWithStop {
 /**
  * creates a Server implementation based Netty
  */
-class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[Int] = None, address: String = "0.0.0.0", val mode: Mode.Mode = Mode.Prod) extends Server with ServerWithStop {
+class NettyServer(appProvider: ApplicationProvider, port: Option[Int], sslPort: Option[Int] = None, address: String = "0.0.0.0", val mode: Mode.Mode = Mode.Prod) extends Server with ServerWithStop {
+
+  require(port.isDefined || sslPort.isDefined, "Neither http.port nor https.port is specified")
 
   def applicationProvider = appProvider
 
@@ -71,41 +73,41 @@ class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[I
           for (in <- resource.managed(new FileInputStream(file))) {
             keyStore.load(in, password)
           }
-          Logger("play").debug("Using HTTPS keystore at " + file.getAbsolutePath)
+          Play.logger.debug("Using HTTPS keystore at " + file.getAbsolutePath)
           try {
             val kmf = KeyManagerFactory.getInstance(algorithm)
             kmf.init(keyStore, password)
             Some(kmf)
           } catch {
             case NonFatal(e) => {
-              Logger("play").error("Error loading HTTPS keystore from " + file.getAbsolutePath, e)
+              Play.logger.error("Error loading HTTPS keystore from " + file.getAbsolutePath, e)
               None
             }
           }
         } else {
-          Logger("play").error("Unable to find HTTPS keystore at \"" + file.getAbsolutePath + "\"")
+          Play.logger.error("Unable to find HTTPS keystore at \"" + file.getAbsolutePath + "\"")
           None
         }
       } orElse {
 
         // Load a generated key store
-        Logger("play").warn("Using generated key with self signed certificate for HTTPS. This should not be used in production.")
+        Play.logger.warn("Using generated key with self signed certificate for HTTPS. This should not be used in production.")
         Some(FakeKeyStore.keyManagerFactory(applicationProvider.path))
 
       } flatMap { a => a } map { kmf =>
         // Load the configured trust manager
         val tm = Option(System.getProperty("https.trustStore")).map {
           case "noCA" => {
-            Logger("play").warn("HTTPS configured with no client " +
+            Play.logger.warn("HTTPS configured with no client " +
               "side CA verification. Requires http://webid.info/ for client certifiate verification.")
             Array[TrustManager](noCATrustManager)
           }
           case _ => {
-            Logger("play").debug("Using default trust store for client side CA verification")
+            Play.logger.debug("Using default trust store for client side CA verification")
             null
           }
         }.getOrElse {
-          Logger("play").debug("Using default trust store for client side CA verification")
+          Play.logger.debug("Using default trust store for client side CA verification")
           null
         }
 
@@ -123,7 +125,7 @@ class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[I
   val defaultUpStreamHandler = new PlayDefaultUpstreamHandler(this, allChannels)
 
   // The HTTP server channel
-  val HTTP = {
+  val HTTP = port.map { port =>
     val bootstrap = newBootstrap
     bootstrap.setPipelineFactory(new PlayPipelineFactory)
     val channel = bootstrap.bind(new InetSocketAddress(address, port))
@@ -143,9 +145,11 @@ class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[I
   mode match {
     case Mode.Test =>
     case _ => {
-      Logger("play").info("Listening for HTTP on %s".format(HTTP._2.getLocalAddress))
+      HTTP.foreach { http =>
+        Play.logger.info("Listening for HTTP on %s".format(http._2.getLocalAddress))
+      }
       HTTPS.foreach { https =>
-        Logger("play").info("Listening for HTTPS on port %s".format(https._2.getLocalAddress))
+        Play.logger.info("Listening for HTTPS on port %s".format(https._2.getLocalAddress))
       }
     }
   }
@@ -155,32 +159,38 @@ class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[I
     try {
       Play.stop()
     } catch {
-      case NonFatal(e) => Logger("play").error("Error while stopping the application", e)
+      case NonFatal(e) => Play.logger.error("Error while stopping the application", e)
     }
 
     try {
       super.stop()
     } catch {
-      case NonFatal(e) => Logger("play").error("Error while stopping akka", e)
+      case NonFatal(e) => Play.logger.error("Error while stopping akka", e)
     }
 
     mode match {
       case Mode.Test =>
-      case _ => Logger("play").info("Stopping server...")
+      case _ => Play.logger.info("Stopping server...")
     }
 
     // First, close all opened sockets
     allChannels.close().awaitUninterruptibly()
 
     // Release the HTTP server
-    HTTP._1.releaseExternalResources()
+    HTTP.foreach(_._1.releaseExternalResources())
 
     // Release the HTTPS server if needed
     HTTPS.foreach(_._1.releaseExternalResources())
 
   }
 
-  override lazy val mainAddress = HTTP._2.getLocalAddress.asInstanceOf[InetSocketAddress]
+  override lazy val mainAddress = {
+    if (HTTP.isDefined) {
+      HTTP.get._2.getLocalAddress.asInstanceOf[InetSocketAddress]
+    } else {
+      HTTPS.get._2.getLocalAddress.asInstanceOf[InetSocketAddress]
+    }
+  }
 
 }
 
@@ -228,7 +238,7 @@ object NettyServer {
     try {
       val server = new NettyServer(
         new StaticApplication(applicationPath),
-        Option(System.getProperty("http.port")).map(Integer.parseInt(_)).getOrElse(9000),
+        Option(System.getProperty("http.port")).fold(Option(9000))(p => if (p == "disabled") Option.empty[Int] else Option(Integer.parseInt(p))),
         Option(System.getProperty("https.port")).map(Integer.parseInt(_)),
         Option(System.getProperty("http.address")).getOrElse("0.0.0.0")
       )
@@ -264,15 +274,23 @@ object NettyServer {
       }
   }
 
+  def mainDevOnlyHttpsMode(sbtLink: SBTLink, httpsPort: Int): NettyServer = {
+    mainDev(sbtLink, None, Some(httpsPort))
+  }
+
   /**
    * provides a NettyServer for the dev environment
    */
-  def mainDev(sbtLink: SBTLink, port: Int): NettyServer = {
+  def mainDevHttpMode(sbtLink: SBTLink, httpPort: Int): NettyServer = {
+    mainDev(sbtLink, Some(httpPort), Option(System.getProperty("https.port")).map(Integer.parseInt(_)))
+  }
+
+  private def mainDev(sbtLink: SBTLink, httpPort: Option[Int], httpsPort: Option[Int]): NettyServer = {
     play.utils.Threads.withContextClassLoader(this.getClass.getClassLoader) {
       try {
         val appProvider = new ReloadableApplication(sbtLink)
-        new NettyServer(appProvider, port,
-          Option(System.getProperty("https.port")).map(Integer.parseInt(_)),
+        new NettyServer(appProvider, httpPort,
+          httpsPort,
           mode = Mode.Dev)
       } catch {
         case e: ExceptionInInitializerError => throw e.getCause

@@ -1,15 +1,18 @@
 package javaguide.http;
 
 import org.junit.Test;
+import play.libs.F;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.test.WithApplication;
 import play.test.Helpers;
 
+import javaguide.testhelpers.MockJavaAction;
+
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.*;
 import static play.test.Helpers.*;
-import static javaguide.http.MockJavaAction.call;
+import static javaguide.testhelpers.MockJavaAction.call;
 
 public class JavaActions extends WithApplication {
     @Test
@@ -17,7 +20,7 @@ public class JavaActions extends WithApplication {
         assertThat(status(call(new Controller1(), fakeRequest())), equalTo(200));
     }
 
-    static class Controller1 extends MockJavaAction {
+    public static class Controller1 extends MockJavaAction {
         //#simple-action
         public static Result index() {
             return ok("Got request " + request() + "!");
@@ -30,7 +33,7 @@ public class JavaActions extends WithApplication {
         assertThat(status(call(new Controller2(), fakeRequest())), equalTo(200));
     }
 
-    static class Controller2 extends MockJavaAction {
+    public static class Controller2 extends MockJavaAction {
         public static Result index() {
             return javaguide.http.full.Application.index();
         }
@@ -50,8 +53,8 @@ public class JavaActions extends WithApplication {
         }
         //#params-action
 
-        public Result invocation() {
-            return index("world");
+        public F.Promise<Result> invocation() {
+            return F.Promise.pure(index("world"));
         }
     }
 
@@ -60,7 +63,7 @@ public class JavaActions extends WithApplication {
         assertThat(status(call(new Controller4(), fakeRequest())), equalTo(200));
     }
 
-    static class Controller4 extends MockJavaAction {
+    public static class Controller4 extends MockJavaAction {
         //#simple-result
         public static Result index() {
             return ok("Hello world!");
@@ -111,7 +114,7 @@ public class JavaActions extends WithApplication {
         assertThat(header(LOCATION, result), equalTo("/user/home"));
     }
 
-    static class Controller6 extends MockJavaAction {
+    public static class Controller6 extends MockJavaAction {
         //#redirect-action
         public static Result index() {
             return redirect("/user/home");
@@ -126,7 +129,7 @@ public class JavaActions extends WithApplication {
         assertThat(header(LOCATION, result), equalTo("/user/home"));
     }
 
-    static class Controller7 extends MockJavaAction {
+    public static class Controller7 extends MockJavaAction {
         //#temporary-redirect-action
         public static Result index() {
             return temporaryRedirect("/user/home");

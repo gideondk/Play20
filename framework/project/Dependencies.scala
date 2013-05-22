@@ -16,7 +16,7 @@ object Dependencies {
     // declare a dependency on the newer version so that ivy can know which one to include
     guava,
 
-    "com.h2database" % "h2" % "1.3.168",
+    "com.h2database" % "h2" % "1.3.171",
 
     "tyrex" % "tyrex" % "1.0.1",
 
@@ -102,10 +102,13 @@ object Dependencies {
     specsBuild % "test",
 
     "org.mockito" % "mockito-all" % "1.9.0" % "test",
-    "com.novocode" % "junit-interface" % "0.10-M2" % "test",
+    "com.novocode" % "junit-interface" % "0.10-M4" % "test",
 
-   ("org.fluentlenium" % "fluentlenium-festassert" % "0.7.8" % "test").exclude("org.jboss.netty", "netty").exclude("comm.google.guava","guava"),
-    "org.scala-lang" % "scala-reflect" % "2.10.0")
+   ("org.fluentlenium" % "fluentlenium-festassert" % "0.8.0" % "test").exclude("org.jboss.netty", "netty").exclude("comm.google.guava","guava"),
+    "org.scala-lang" % "scala-reflect" % "2.10.0",
+
+    "org.databene" % "contiperf" % "2.2.0" % "test",
+    "junit" % "junit" % "4.11" % "test")
 
   val link = Seq(
     "org.javassist" % "javassist" % "3.16.1-GA")
@@ -173,8 +176,8 @@ object Dependencies {
   val testDependencies = Seq(
     "junit" % "junit" % "4.11",
     specsBuild,
-    "com.novocode" % "junit-interface" % "0.10-M2",
+    "com.novocode" % "junit-interface" % "0.10-M4",
    ("com.google.guava" % "guava" % "10.0.1" notTransitive()),
-    ("org.fluentlenium" % "fluentlenium-festassert" % "0.7.8").exclude("org.jboss.netty", "netty").exclude("com.google.guava","guava"))
+    ("org.fluentlenium" % "fluentlenium-festassert" % "0.8.0").exclude("org.jboss.netty", "netty").exclude("com.google.guava","guava"))
 
 }

@@ -319,7 +319,7 @@ trait BodyParsers {
      */
     def raw(memoryThreshold: Int): BodyParser[RawBuffer] = BodyParser("raw, memoryThreshold=" + memoryThreshold) { request =>
       val buffer = RawBuffer(memoryThreshold)
-      Iteratee.foreach[Array[Byte]](bytes => buffer.push(bytes))(play.core.Execution.internalContext).mapDone { _ =>
+      Iteratee.foreach[Array[Byte]](bytes => buffer.push(bytes))(play.core.Execution.internalContext).map { _ =>
         buffer.close()
         Right(buffer)
       }(play.core.Execution.internalContext)
@@ -392,7 +392,7 @@ trait BodyParsers {
      * @param maxLength Max length allowed or returns EntityTooLarge HTTP response.
      */
     def tolerantXml(maxLength: Int): BodyParser[NodeSeq] = BodyParser("xml, maxLength=" + maxLength) { request =>
-      Traversable.takeUpTo[Array[Byte]](maxLength).apply(Iteratee.consume[Array[Byte]]().mapDone { bytes =>
+      Traversable.takeUpTo[Array[Byte]](maxLength).apply(Iteratee.consume[Array[Byte]]().map { bytes =>
         scala.util.control.Exception.allCatch[NodeSeq].either {
           XML.loadString(new String(bytes, request.charset.getOrElse("utf-8")))
         }.left.map { e =>
@@ -441,7 +441,7 @@ trait BodyParsers {
       Iteratee.fold[Array[Byte], FileOutputStream](new FileOutputStream(to)) { (os, data) =>
         os.write(data)
         os
-      }(play.core.Execution.internalContext).mapDone { os =>
+      }(play.core.Execution.internalContext).map { os =>
         os.close()
         Right(to)
       }(play.core.Execution.internalContext)
@@ -452,7 +452,7 @@ trait BodyParsers {
      */
     def temporaryFile: BodyParser[TemporaryFile] = BodyParser("temporaryFile") { request =>
       val tempFile = TemporaryFile("requestBody", "asTemporaryFile")
-      file(tempFile.file)(request).mapDone(_ => Right(tempFile))(play.core.Execution.internalContext)
+      file(tempFile.file)(request).map(_ => Right(tempFile))(play.core.Execution.internalContext)
     }
 
     // -- FormUrlEncoded
@@ -467,7 +467,7 @@ trait BodyParsers {
       import play.core.parsers._
       import scala.collection.JavaConverters._
 
-      Traversable.takeUpTo[Array[Byte]](maxLength).apply(Iteratee.consume[Array[Byte]]().mapDone { c =>
+      Traversable.takeUpTo[Array[Byte]](maxLength).apply(Iteratee.consume[Array[Byte]]().map { c =>
         scala.util.control.Exception.allCatch[Map[String, Seq[String]]].either {
           FormUrlEncodedParser.parse(new String(c, request.charset.getOrElse("utf-8")), request.charset.getOrElse("utf-8"))
         }.left.map { e =>
@@ -512,31 +512,31 @@ trait BodyParsers {
     def anyContent: BodyParser[AnyContent] = BodyParser("anyContent") { request =>
       request.contentType match {
         case _ if request.method == "GET" || request.method == "HEAD" => {
-          Logger("play").trace("Parsing AnyContent as empty")
+          Play.logger.trace("Parsing AnyContent as empty")
           empty(request).map(_.right.map(_ => AnyContentAsEmpty))(play.core.Execution.internalContext)
         }
         case Some("text/plain") => {
-          Logger("play").trace("Parsing AnyContent as text")
+          Play.logger.trace("Parsing AnyContent as text")
           text(request).map(_.right.map(s => AnyContentAsText(s)))(play.core.Execution.internalContext)
         }
         case Some("text/xml") | Some("application/xml") | Some(ApplicationXmlMatcher()) => {
-          Logger("play").trace("Parsing AnyContent as xml")
+          Play.logger.trace("Parsing AnyContent as xml")
           xml(request).map(_.right.map(x => AnyContentAsXml(x)))(play.core.Execution.internalContext)
         }
         case Some("text/json") | Some("application/json") => {
-          Logger("play").trace("Parsing AnyContent as json")
+          Play.logger.trace("Parsing AnyContent as json")
           json(request).map(_.right.map(j => AnyContentAsJson(j)))(play.core.Execution.internalContext)
         }
         case Some("application/x-www-form-urlencoded") => {
-          Logger("play").trace("Parsing AnyContent as urlFormEncoded")
+          Play.logger.trace("Parsing AnyContent as urlFormEncoded")
           urlFormEncoded(request).map(_.right.map(d => AnyContentAsFormUrlEncoded(d)))(play.core.Execution.internalContext)
         }
         case Some("multipart/form-data") => {
-          Logger("play").trace("Parsing AnyContent as multipartFormData")
+          Play.logger.trace("Parsing AnyContent as multipartFormData")
           multipartFormData(request).map(_.right.map(m => AnyContentAsMultipartFormData(m)))(play.core.Execution.internalContext)
         }
         case _ => {
-          Logger("play").trace("Parsing AnyContent as raw")
+          Play.logger.trace("Parsing AnyContent as raw")
           raw(request).map(_.right.map(r => AnyContentAsRaw(r)))(play.core.Execution.internalContext)
         }
       }
@@ -607,14 +607,14 @@ trait BodyParsers {
 
             val readPart = collectHeaders.flatMap { case (headers, left) => Iteratee.flatten(partHandler(headers).feed(Input.El(left))) }(play.core.Execution.internalContext)
 
-            val handlePart = Enumeratee.map[MatchInfo[Array[Byte]]](_.content).transform(readPart)
+            val handlePart = Enumeratee.map[MatchInfo[Array[Byte]]](_.content)(play.core.Execution.internalContext).transform(readPart)
 
             Traversable.take[Array[Byte]](boundary.size - 2).transform(Iteratee.consume()).flatMap { firstBoundary =>
 
               Parsing.search(boundary) transform Iteratee.repeat {
 
                 takeUpToBoundary.transform(handlePart).flatMap { part =>
-                  Enumeratee.take(1)(Iteratee.ignore[MatchInfo[Array[Byte]]]).mapDone(_ => part)(play.core.Execution.internalContext)
+                  Enumeratee.take(1)(Iteratee.ignore[MatchInfo[Array[Byte]]]).map(_ => part)(play.core.Execution.internalContext)
                 }(play.core.Execution.internalContext)
 
               }.map(parts => Right(parts.dropRight(1)))(play.core.Execution.internalContext)
@@ -636,7 +636,7 @@ trait BodyParsers {
             Iteratee.fold[Array[Byte], FileOutputStream](new java.io.FileOutputStream(tempFile.file)) { (os, data) =>
               os.write(data)
               os
-            }(play.core.Execution.internalContext).mapDone { os =>
+            }(play.core.Execution.internalContext).map { os =>
               os.close()
               tempFile
             }(play.core.Execution.internalContext)
@@ -739,7 +739,7 @@ trait BodyParsers {
     /**
      * A body parser that always returns an error.
      */
-    def error[A](result: Result): BodyParser[A] = BodyParser("error, result=" + result) { request =>
+    def error[A](result: SimpleResult): BodyParser[A] = BodyParser("error, result=" + result) { request =>
       Done(Left(result), Empty)
     }
 
@@ -753,7 +753,7 @@ trait BodyParsers {
     /**
      * Create a conditional BodyParser.
      */
-    def when[A](predicate: RequestHeader => Boolean, parser: BodyParser[A], badResult: RequestHeader => Result): BodyParser[A] = {
+    def when[A](predicate: RequestHeader => Boolean, parser: BodyParser[A], badResult: RequestHeader => SimpleResult): BodyParser[A] = {
       BodyParser("conditional, wrapping=" + parser.toString) { request =>
         if (predicate(request)) {
           parser(request)

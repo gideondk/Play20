@@ -1,13 +1,12 @@
 package sbt
 
 import Keys._
-import complete.Parser
 
 import play.console.Colors
 
-import PlayExceptions._
 import PlayKeys._
 import java.lang.{ ProcessBuilder => JProcessBuilder }
+import sbt.complete.Parsers._
 
 trait PlayCommands extends PlayAssetsCompiler with PlayEclipse with PlayInternalKeys {
   this: PlayReloader =>
@@ -147,14 +146,32 @@ exec java $* -cp $classpath """ + customFileName.map(fn => "-Dconfig.file=`dirna
     zip
   }
 
-  def intellijCommandSettings(mainLang: String) = {
-    import com.typesafe.sbtidea.SbtIdeaPlugin
-    SbtIdeaPlugin.ideaSettings ++
-      Seq(
-        SbtIdeaPlugin.commandName := "idea",
-        SbtIdeaPlugin.includeScalaFacet := { mainLang == SCALA },
-        SbtIdeaPlugin.defaultClassifierPolicy := false
-      )
+  def intellijCommandSettings = {
+    import org.sbtidea.SbtIdeaPlugin
+
+    // This stuff is all private in the IDEA plugin, so let's copy it here
+    val WithSources = "with-sources=yes"
+    val NoSources = "no-sources"
+    val NoClassifiers = "no-classifiers"
+    val SbtClassifiers = "sbt-classifiers"
+    val NoFsc = "no-fsc"
+    val NoTypeHighlighting = "no-type-highlighting"
+    val NoSbtBuildModule = "no-sbt-build-module"
+
+    val args = (Space ~> NoClassifiers | Space ~> SbtClassifiers | Space ~> NoFsc | Space ~> NoTypeHighlighting | Space ~> NoSbtBuildModule | Space ~> WithSources | Space ~> NoSources).*
+
+    SbtIdeaPlugin.settings ++ Seq(
+      commands += Command("idea")(_ => args) { (state, args) =>
+        // Firstly, attempt to compile the project, but ignore the result
+        Project.runTask(compile in Compile, state)
+
+        SbtIdeaPlugin.doCommand(state, if (!args.contains(WithSources) && !(args.contains(NoSources) || args.contains(NoClassifiers))) {
+          args :+ NoClassifiers
+        } else {
+          args
+        })
+      }
+    )
   }
 
   val playStage = TaskKey[Unit]("stage")
@@ -534,8 +551,6 @@ exec java $* -cp $classpath """ + customFileName.map(fn => "-Dconfig.file=`dirna
         println("Here are the resolved dependencies of your application:")
         println()
 
-        import scala.Console._
-
         def asTableRow(module: Map[Symbol, Any]): Seq[(String, String, String, Boolean)] = {
           val formatted = (Seq(module.get('module).map {
             case (org, name, rev) => org + ":" + name + ":" + rev
@@ -569,21 +584,22 @@ exec java $* -cp $classpath """ + customFileName.map(fn => "-Dconfig.file=`dirna
 
           def bar(length: Int) = (1 to length).map(_ => "-").mkString
 
-          val lineFormat = "| %-" + (c1Size + 9) + "s | %-" + (c2Size + 9) + "s | %-" + (c3Size + 9) + "s |"
+          val indent = if (Colors.isANSISupported) 9 else 0
+          val lineFormat = "| %-" + (c1Size + indent) + "s | %-" + (c2Size + indent) + "s | %-" + (c3Size + indent) + "s |"
           val separator = "+-%s-+-%s-+-%s-+".format(
             bar(c1Size), bar(c2Size), bar(c3Size))
 
           println(separator)
-          println(lineFormat.format(CYAN + "Module" + RESET, CYAN + "Required by" + RESET, CYAN + "Note" + RESET))
+          println(lineFormat.format(Colors.cyan("Module"), Colors.cyan("Required by"), Colors.cyan("Note")))
           println(separator)
 
           modules.foreach { lines =>
             lines.foreach {
               case (module, caller, note, evicted) => {
                 println(lineFormat.format(
-                  if (evicted) (RED + module + RESET) else (GREEN + module + RESET),
-                  (WHITE + caller + RESET),
-                  if (evicted) (RED + note + RESET) else (WHITE + note + RESET)))
+                  if (evicted) Colors.red(module) else Colors.green(module),
+                  Colors.white(caller),
+                  if (evicted) Colors.red(note) else Colors.white(note)))
               }
             }
             println(separator)
