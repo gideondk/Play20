@@ -22,7 +22,7 @@ import scala.util.control.Exception
 import com.typesafe.netty.http.pipelining.{OrderedDownstreamMessageEvent, OrderedUpstreamMessageEvent}
 
 
-private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: DefaultChannelGroup) extends SimpleChannelUpstreamHandler with Helpers with WebSocketHandler with RequestBodyHandler {
+private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: DefaultChannelGroup) extends SimpleChannelUpstreamHandler with WebSocketHandler with RequestBodyHandler {
 
   implicit val internalExecutionContext =  play.core.Execution.internalContext
 
@@ -61,7 +61,6 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
         var nettyVersion = nettyHttpRequest.getProtocolVersion
         val nettyUri = new QueryStringDecoder(nettyHttpRequest.getUri)
         val rHeaders = getHeaders(nettyHttpRequest)
-        val rCookies = getCookies(nettyHttpRequest)
 
         def rRemoteAddress = e.getRemoteAddress match {
           case ra: java.net.InetSocketAddress => {
@@ -97,21 +96,19 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
           untaggedRequestHeader
         }
 
-        val (untaggedRequestHeader, handler) = Exception
+        val (requestHeader, handler: Either[SimpleResult,(Handler,Application)]) = Exception
             .allCatch[RequestHeader].either(tryToCreateRequest)
             .fold(
-               e => {
-                 val rh = createRequestHeader()
-                 val r = server.applicationProvider.get.fold(e => DefaultGlobal, a => a.global).onBadRequest(rh, e.getMessage)
-                 (rh, Left(r))
-               },
-               rh => (rh, server.getHandlerFor(rh)))
-
-        // tag request if necessary
-        val requestHeader = handler.right.toOption.map({
-          case (h: RequestTaggingHandler, _) => h.tagRequest(untaggedRequestHeader)
-          case _ => untaggedRequestHeader
-        }).getOrElse(untaggedRequestHeader)
+              e => {
+                val rh = createRequestHeader()
+                val r = server.applicationProvider.get.fold(e => DefaultGlobal, a => a.global).onBadRequest(rh, e.getMessage)
+                (rh, Left(r))
+              },
+              rh => server.getHandlerFor(rh) match {
+                case directResult @ Left(_) => (rh, directResult)
+                case Right((taggedRequestHeader, handler, application)) => (taggedRequestHeader, Right((handler, application)))
+              }
+            )
 
         // Call onRequestCompletion after all request processing is done. Protected with an AtomicBoolean to ensure can't be executed more than once.
         val alreadyClean = new java.util.concurrent.atomic.AtomicBoolean(false)
@@ -123,7 +120,6 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
         
         // attach the cleanup function to the channel context for after cleaning
         ctx.setAttachment(cleanup _)
-
 
         // It is a pre-requesite that we're using the http pipelining capabilities provided and that we have a
         // handler downstream from this one that produces these events.
@@ -179,9 +175,8 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
         def handleAction(action: EssentialAction, app: Option[Application]){
           Play.logger.trace("Serving this request with: " + action)
 
-          val filteredAction = app.map(_.global).getOrElse(DefaultGlobal).doFilter(action)
-
-          val eventuallyBodyParser = filteredAction(requestHeader)
+          val eventuallyBodyParser = Iteratee.flatten(
+            scala.concurrent.Future(action(requestHeader))(play.api.libs.concurrent.Execution.defaultContext))
 
           requestHeader.headers.get("Expect").filter(_ == "100-continue").foreach { _ =>
             eventuallyBodyParser.unflatten.map {
@@ -239,6 +234,25 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
       case unexpected => Play.logger.error("Oops, unexpected message received in NettyServer (please report this problem): " + unexpected)
 
     }
+  }
+
+  def socketOut[A](ctx: ChannelHandlerContext)(frameFormatter: play.api.mvc.WebSocket.FrameFormatter[A]): Iteratee[A, Unit] = {
+    val channel = ctx.getChannel()
+    val nettyFrameFormatter = frameFormatter.asInstanceOf[play.core.server.websocket.FrameFormatter[A]]
+
+    def step(future: Option[ChannelFuture])(input: Input[A]): Iteratee[A, Unit] =
+      input match {
+        case El(e) => Cont(step(Some(channel.write(nettyFrameFormatter.toFrame(e)))))
+        case e @ EOF => future.map(_.addListener(ChannelFutureListener.CLOSE)).getOrElse(channel.close()); Done((), e)
+        case Empty => Cont(step(future))
+      }
+
+    Enumeratee.breakE[A](_ => !channel.isConnected())(play.core.Execution.internalContext).transform(Cont(step(None)))
+  }
+
+  def getHeaders(nettyRequest: HttpRequest): Headers = {
+    val pairs = nettyRequest.getHeaders.asScala.groupBy(_.getKey).mapValues(_.map(_.getValue))
+    new Headers { val data = pairs.toSeq }
   }
 
   def sendDownstream(subSequence: Int, last: Boolean, message: Object)
