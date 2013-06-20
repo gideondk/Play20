@@ -75,8 +75,8 @@ object Dependencies {
 
     scalaIoFileBuild,
 
-    "com.typesafe.akka" %% "akka-actor" % "2.2-M3",
-    "com.typesafe.akka" %% "akka-slf4j" % "2.2-M3",
+    "com.typesafe.akka" %% "akka-actor" % "2.2.0-RC1",
+    "com.typesafe.akka" %% "akka-slf4j" % "2.2.0-RC1",
 
     "org.scala-stm" % "scala-stm_2.10.0" % "0.6",
 

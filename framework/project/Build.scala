@@ -20,10 +20,10 @@ object BuildSettings {
   val experimental = Option(System.getProperty("experimental")).filter(_ == "true").map(_ => true).getOrElse(false)
 
   val buildOrganization = "com.typesafe.play"
-  val buildVersion = propOr("play.version", "2.2-SNAPSHOT")
+  val buildVersion = "2.2-akka22-SNAPSHOT"
   val buildWithDoc = boolProp("generate.doc")
   val previousVersion = "2.1.0"
-  val buildScalaVersion = propOr("scala.version", "2.10.0")
+  val buildScalaVersion = propOr("scala.version", "2.10.2")
   // TODO - Try to compute this from SBT...
   val buildScalaVersionForSbt = propOr("play.sbt.scala.version", "2.9.2")
   val buildSbtVersion = propOr("play.sbt.version", "0.12.3")
