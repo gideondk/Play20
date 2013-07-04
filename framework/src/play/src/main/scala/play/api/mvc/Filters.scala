@@ -2,8 +2,7 @@ package play.api.mvc
 
 import play.api._
 import play.api.libs.iteratee._
-import play.api.libs.concurrent._
-import scala.concurrent.Future
+import scala.concurrent.{ Promise, Future }
 
 /**
  * Implement this interface if you want to add a Filter to your application
@@ -56,7 +55,7 @@ trait Filter extends EssentialFilter {
         Iteratee.flatten(bodyIteratee.future.map(_.mapM({ simpleResult =>
           promisedResult.success(simpleResult)
           result
-        })(defaultContext)))
+        })))
       }
 
     }

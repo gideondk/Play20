@@ -3,6 +3,9 @@ package play.api.mvc
 import play.api.libs.iteratee._
 import play.api._
 import scala.concurrent._
+import scala.language.higherKinds
+
+import play.core.Execution.Implicits.internalContext
 
 /**
  * An Handler handles a request.
@@ -140,7 +143,7 @@ trait BodyParser[+A] extends Function1[RequestHeader, Iteratee[Array[Byte], Eith
    * Transform this BodyParser[A] to a BodyParser[B]
    */
   def map[B](f: A => B): BodyParser[B] = new BodyParser[B] {
-    def apply(request: RequestHeader) = self(request).map(_.right.map(f(_)))(play.core.Execution.internalContext)
+    def apply(request: RequestHeader) = self(request).map(_.right.map(f(_)))
     override def toString = self.toString
   }
 
@@ -151,7 +154,7 @@ trait BodyParser[+A] extends Function1[RequestHeader, Iteratee[Array[Byte], Eith
     def apply(request: RequestHeader) = self(request).flatMap {
       case Left(e) => Done(Left(e), Input.Empty)
       case Right(a) => f(a)(request)
-    }(play.core.Execution.internalContext)
+    }
     override def toString = self.toString
   }
 
@@ -255,7 +258,7 @@ trait ActionBuilder[R[_]] {
    *
    * For example:
    * {{{
-   * val hello = Action.future {
+   * val hello = Action.async {
    *   WS.url("http://www.playframework.com").get().map { r =>
    *     if (r.status == 200) Ok("The website is up") else NotFound("The website is down")
    *   }
@@ -272,7 +275,7 @@ trait ActionBuilder[R[_]] {
    *
    * For example:
    * {{{
-   * val hello = Action.future { request =>
+   * val hello = Action.async { request =>
    *   WS.url(request.getQueryString("url").get).get().map { r =>
    *     if (r.status == 200) Ok("The website is up") else NotFound("The website is down")
    *   }
@@ -289,7 +292,7 @@ trait ActionBuilder[R[_]] {
    *
    * For example:
    * {{{
-   * val hello = Action.future { request =>
+   * val hello = Action.async { request =>
    *   WS.url(request.getQueryString("url").get).get().map { r =>
    *     if (r.status == 200) Ok("The website is up") else NotFound("The website is down")
    *   }

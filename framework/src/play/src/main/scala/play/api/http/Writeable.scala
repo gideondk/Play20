@@ -4,8 +4,11 @@ import play.api.mvc._
 import play.api.libs.json._
 
 import scala.annotation._
+import scala.language.reflectiveCalls
 import play.api.libs.iteratee.Enumeratee
 import play.api.libs.concurrent.Execution
+
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
  * Transform a value of type A to a Byte Array.
@@ -17,7 +20,7 @@ import play.api.libs.concurrent.Execution
 )
 case class Writeable[-A](transform: (A => Array[Byte]), contentType: Option[String]) {
   def map[B](f: B => A): Writeable[B] = Writeable(b => transform(f(b)), contentType)
-  def toEnumeratee[E <: A]: Enumeratee[E, Array[Byte]] = Enumeratee.map[E](transform)(Execution.defaultContext)
+  def toEnumeratee[E <: A]: Enumeratee[E, Array[Byte]] = Enumeratee.map[E](transform)
 }
 
 /**

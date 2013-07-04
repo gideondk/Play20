@@ -15,7 +15,8 @@ object ApplicationBuild extends Build {
     libraryDependencies ++= Seq(
       component("play") % "test",
       component("play-test") % "test",
-      component("play-java") % "test"
+      component("play-java") % "test",
+      component("play-cache") % "test"
     ),
 
     javaManualSourceDirectories <<= (baseDirectory)(base => (base / "manual" / "javaGuide" ** "code").get),
@@ -23,9 +24,11 @@ object ApplicationBuild extends Build {
 
     unmanagedSourceDirectories in Test <++= javaManualSourceDirectories,
     unmanagedSourceDirectories in Test <++= scalaManualSourceDirectories,
+    unmanagedSourceDirectories in Test <++= (baseDirectory)(base => (base / "manual" / "detailledTopics" ** "code").get),
 
     unmanagedResourceDirectories in Test <++= javaManualSourceDirectories,
     unmanagedResourceDirectories in Test <++= scalaManualSourceDirectories,
+    unmanagedResourceDirectories in Test <++= (baseDirectory)(base => (base / "manual" / "detailledTopics" ** "code").get),
 
     parallelExecution in Test := false,
 

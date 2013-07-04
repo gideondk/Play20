@@ -75,8 +75,8 @@ object Dependencies {
 
     scalaIoFileBuild,
 
-    "com.typesafe.akka" %% "akka-actor" % "2.2.0-RC1",
-    "com.typesafe.akka" %% "akka-slf4j" % "2.2.0-RC1",
+    "com.typesafe.akka" %% "akka-actor" % "2.2.0-RC2",
+    "com.typesafe.akka" %% "akka-slf4j" % "2.2.0-RC2",
 
     "org.scala-stm" % "scala-stm_2.10.0" % "0.6",
 
@@ -94,8 +94,6 @@ object Dependencies {
     "com.fasterxml.jackson.core" % "jackson-core" % "2.1.1",
     "com.fasterxml.jackson.core" % "jackson-annotations" % "2.1.1",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.1.1",
-
-    "net.sf.ehcache" % "ehcache-core" % "2.6.0",
 
     "javax.transaction" % "jta" % "1.1",
 
@@ -179,5 +177,10 @@ object Dependencies {
     "com.novocode" % "junit-interface" % "0.10-M4",
    ("com.google.guava" % "guava" % "10.0.1" notTransitive()),
     ("org.fluentlenium" % "fluentlenium-festassert" % "0.8.0").exclude("org.jboss.netty", "netty").exclude("com.google.guava","guava"))
+
+  val playCacheDeps = Seq(
+    "net.sf.ehcache" % "ehcache-core" % "2.6.0",
+    specsBuild % "test"
+  )
 
 }

@@ -86,7 +86,7 @@ package play.api.mvc {
      */
     lazy val acceptLanguages: Seq[play.api.i18n.Lang] = {
       val langs = acceptHeader(HeaderNames.ACCEPT_LANGUAGE).map(item => (item._1, Lang.get(item._2)))
-      langs.sortBy(_._1).map(_._2).flatten.reverse
+      langs.sortWith((a, b) => a._1 > b._1).map(_._2).flatten
     }
 
     /**
@@ -161,7 +161,7 @@ package play.api.mvc {
     /**
      * Returns the charset of the request for text-based body
      */
-    lazy val charset: Option[String] = headers.get(play.api.http.HeaderNames.CONTENT_TYPE).flatMap(_.split(';').tail.headOption).map(_.toLowerCase.trim).filter(_.startsWith("charset=")).flatMap(_.split('=').tail.headOption)
+    lazy val charset: Option[String] = headers.get(play.api.http.HeaderNames.CONTENT_TYPE).flatMap(_.split(';').tail.headOption).map(_.toLowerCase.trim).filter(_.startsWith("charset=")).flatMap(_.split('=').tail.headOption.map(_.replaceAll("""^"|"$""", "")))
 
     /**
      * Copy the request.
