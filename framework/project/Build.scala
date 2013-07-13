@@ -42,7 +42,7 @@ object BuildSettings {
     ivyLoggingLevel := UpdateLogging.DownloadOnly,
     publishTo := Some(publishingMavenRepository),
     javacOptions ++= Seq("-source", "1.6", "-target", "1.6", "-encoding", "UTF-8", "-Xlint:-options"),
-    javacOptions in doc := Seq("-source", "1.6", "-Xlint:-options"),
+    javacOptions in doc := Seq("-source", "1.6"),
     resolvers ++= typesafeResolvers,
     fork in Test := true,
     testOptions in Test += Tests.Filter(!_.endsWith("Benchmark")),
@@ -211,6 +211,8 @@ object PlayBuild extends Build {
     .settings(libraryDependencies := javaDeps)
     .dependsOn(PlayProject)
     .dependsOn(PlayTestProject % "test")
+  
+  import ScriptedPlugin._
 
   lazy val SbtPluginProject = PlaySbtProject("SBT-Plugin", "sbt-plugin")
     .settings(
@@ -222,6 +224,17 @@ object PlayBuild extends Build {
       libraryDependencies += "org.specs2" %% "specs2" % "1.12.3" % "test" exclude("javax.transaction", "jta"),
       libraryDependencies += "org.scala-sbt" % "sbt" % buildSbtVersion % "provided",
       publishTo := Some(publishingIvyRepository)
+    ).settings(scriptedSettings: _*)
+    .settings(
+      scriptedLaunchOpts <++= (baseDirectory in ThisBuild) { baseDir =>
+        Seq(
+          "-Dsbt.ivy.home=" + new File(baseDir.getParent, "repository"),
+          "-Dsbt.boot.directory=" + new File(baseDir, "sbt/boot"),
+          "-Dplay.home=" + System.getProperty("play.home"),
+          "-XX:MaxPermSize=384M",
+          "-Dperformance.log=" + new File(baseDir, "target/sbt-repcomile-performance.properties")
+       )
+      }
     ).dependsOn(SbtLinkProject, PlayExceptionsProject, RoutesCompilerProject, TemplatesCompilerProject, ConsoleProject)
 
   // todo this can be 2.10 and not cross-versioned or anything.  GO HOG WILD JAMES!
@@ -247,7 +260,7 @@ object PlayBuild extends Build {
       "Play-Repository", file("repository"))
     .settings(localRepoCreationSettings:_*)
     .settings(
-      localRepoProjectsPublished <<= (Seq(PlayProject, IterateesProject) map (publishLocal in _)).dependOn,
+      localRepoProjectsPublished <<= (publishedProjects map (publishLocal in _)).dependOn,
       addProjectsToRepository(publishedProjects),
       localRepoArtifacts ++= Seq(
         "org.scala-lang" % "scala-compiler" % BuildSettings.buildScalaVersion,

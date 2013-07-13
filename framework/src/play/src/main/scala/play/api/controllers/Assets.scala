@@ -64,7 +64,6 @@ class AssetsBuilder extends Controller {
    * @param file the file part extracted from the URL
    */
   def at(path: String, file: String): Action[AnyContent] = Action { request =>
-    // -- LastModified handling
 
     def parseDate(date: String): Option[java.util.Date] = try {
       //jodatime does not parse timezones, so we handle that manually
@@ -89,13 +88,21 @@ class AssetsBuilder extends Controller {
       }
 
       def maybeNotModified(url: java.net.URL) = {
-        request.headers.get(IF_NONE_MATCH).flatMap { ifNoneMatch =>
-          etagFor(url).filter(_ == ifNoneMatch)
-        }.map(_ => cacheableResult(url, NotModified)).orElse {
-          request.headers.get(IF_MODIFIED_SINCE).flatMap(parseDate).flatMap { ifModifiedSince =>
-            lastModifiedFor(url).flatMap(parseDate).filterNot(lastModified => lastModified.after(ifModifiedSince))
-          }.map(_ => NotModified.withHeaders(
-            DATE -> df.print({ new java.util.Date }.getTime)))
+        // First check etag. Important, if there is an If-None-Match header, we MUST not check the
+        // If-Modified-Since header, regardless of whether If-None-Match matches or not. This is in
+        // accordance with section 14.26 of RFC2616.
+        request.headers.get(IF_NONE_MATCH) match {
+          case Some(etags) => {
+            etagFor(url).filter(etag =>
+              etags.split(",").exists(_.trim == etag)
+            ).map(_ => cacheableResult(url, NotModified))
+          }
+          case None => {
+            request.headers.get(IF_MODIFIED_SINCE).flatMap(parseDate).flatMap { ifModifiedSince =>
+              lastModifiedFor(url).flatMap(parseDate).filterNot(lastModified => lastModified.after(ifModifiedSince))
+            }.map(_ => NotModified.withHeaders(
+              DATE -> df.print({ new java.util.Date }.getTime)))
+          }
         }
       }
 
@@ -159,27 +166,36 @@ class AssetsBuilder extends Controller {
     }
   }
 
+  // -- LastModified handling
+
   private val lastModifieds = (new java.util.concurrent.ConcurrentHashMap[String, String]()).asScala
 
   private def lastModifiedFor(resource: java.net.URL): Option[String] = {
-    lastModifieds.get(resource.toExternalForm).filter(_ => Play.isProd).orElse {
-      val maybeLastModified = resource.getProtocol match {
-        case "file" => Some(df.print({ new java.util.Date(new java.io.File(resource.getPath).lastModified).getTime }))
+    def formatLastModified(lastModified: Long): String = df.print(lastModified)
+
+    def maybeLastModified(resource: java.net.URL): Option[Long] = {
+      resource.getProtocol match {
+        case "file" => Some(new File(resource.getPath).lastModified)
         case "jar" => {
-          resource.getPath.split('!').drop(1).headOption.flatMap { fileNameInJar =>
-            Option(resource.openConnection)
-              .collect { case c: JarURLConnection => c }
-              .flatMap(c => Option(c.getJarFile.getJarEntry(fileNameInJar.drop(1))))
-              .map(_.getTime)
-              .filterNot(_ == 0)
-              .map(lastModified => df.print({ new java.util.Date(lastModified) }.getTime))
-          }
+          Option(resource.openConnection)
+            .map(_.asInstanceOf[JarURLConnection].getJarEntry.getTime)
+            .filterNot(_ == -1)
         }
         case _ => None
       }
-      maybeLastModified.foreach(lastModifieds.put(resource.toExternalForm, _))
-      maybeLastModified
     }
+
+    def cachedLastModified(resource: java.net.URL)(orElseAction: => Option[String]): Option[String] =
+      lastModifieds.get(resource.toExternalForm).orElse(orElseAction)
+
+    def setAndReturnLastModified(resource: java.net.URL): Option[String] = {
+      val mlm = maybeLastModified(resource).map(formatLastModified)
+      mlm.foreach(lastModifieds.put(resource.toExternalForm, _))
+      mlm
+    }
+
+    if (Play.isProd) cachedLastModified(resource) { setAndReturnLastModified(resource) }
+    else setAndReturnLastModified(resource)
   }
 
   // -- ETags handling
